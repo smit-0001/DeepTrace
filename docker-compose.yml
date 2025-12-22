@@ -1,0 +1,118 @@
+version: '3.8'
+
+services:
+  # -----------------------------
+  # 1. INFRASTRUCTURE SERVICES
+  # -----------------------------
+  
+  # Message Broker
+  redis:
+    image: redis:alpine
+    container_name: deeptrace_redis
+    ports:
+      - "6379:6379"
+    networks:
+      - deeptrace_net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # Database
+  db:
+    image: postgres:15-alpine
+    container_name: deeptrace_db
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admin}
+      POSTGRES_DB: deeptrace_logs
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - deeptrace_net
+
+  # -----------------------------
+  # 2. DEEPTRACE CORE SERVICES
+  # -----------------------------
+
+  # C++ Packet Sniffer (The Engine)
+  sniffer:
+    build: 
+      context: ./deeptrace-sniffer
+      dockerfile: Dockerfile
+    container_name: deeptrace_sniffer
+    restart: always
+    # "host" mode required to capture actual network traffic
+    network_mode: "host"
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      - REDIS_HOST=localhost
+      - REDIS_PORT=6379
+      - INTERFACE_NAME=wlan0  # Change this to your actual interface (e.g., wlan0 or eth0)
+
+  # Python ML Inference (The Brain)
+  brain:
+    build: 
+      context: ./deeptrace-brain
+      dockerfile: Dockerfile
+    container_name: deeptrace_brain
+    restart: always
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      - REDIS_HOST=deeptrace_redis
+      - REDIS_PORT=6379
+      - MODEL_PATH=/app/models/deeptrace_rf_v1.pkl
+    volumes:
+      - ./deeptrace-brain/models:/app/models
+    networks:
+      - deeptrace_net
+
+  # Backend API
+  api:
+    build: 
+      context: ./deeptrace-api
+      dockerfile: Dockerfile
+    container_name: deeptrace_api
+    restart: always
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-admin}@db:5432/deeptrace_logs
+    networks:
+      - deeptrace_net
+
+  # Frontend Dashboard
+  dashboard:
+    build: 
+      context: ./deeptrace-dashboard
+      dockerfile: Dockerfile
+    container_name: deeptrace_dashboard
+    restart: always
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
+    networks:
+      - deeptrace_net
+
+# -----------------------------
+# 3. NETWORKS & VOLUMES
+# -----------------------------
+networks:
+  deeptrace_net:
+    driver: bridge
+
+volumes:
+  postgres_data:

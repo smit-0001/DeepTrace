@@ -1,0 +1,11 @@
+pandas==2.1.0
+numpy==1.26.0
+scikit-learn==1.3.0
+matplotlib==3.8.0
+seaborn==0.13.0
+jupyter==1.0.0
+fastapi==0.104.0
+uvicorn==0.24.0
+redis==5.0.1
+# 'joblib' is used for saving/loading models
+joblib==1.3.2
