@@ -12,7 +12,7 @@ build/
 
 # Data
 data/MachineLearningCVE/
-processed/
+data/processed/
+!subset_ids2017.csv
 *.pcap
 *.csv
-!subset_ids_2017.csv

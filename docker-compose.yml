@@ -54,7 +54,7 @@ services:
     environment:
       - REDIS_HOST=localhost
       - REDIS_PORT=6379
-      - INTERFACE_NAME=wlan0  # Change this to your actual interface (e.g., wlan0 or eth0)
+      - INTERFACE_NAME=eth0  # Change this to your actual interface (e.g., wlan0 or eth0)
 
   # Python ML Inference (The Brain)
   brain:
